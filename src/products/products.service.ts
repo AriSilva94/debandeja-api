@@ -142,7 +142,7 @@ export class ProductsService {
 
   async create(tenant: TenantContext, dto: CreateProductDto) {
     const { tenantId } = tenant;
-    await this.assertSkuAvailable(tenantId, dto.sku);
+    if (dto.sku) await this.assertSkuAvailable(tenantId, dto.sku);
     if (dto.initialStockByBranch) {
       const branchIds = Object.keys(dto.initialStockByBranch);
       await assertBranchesBelongToTenant(this.prisma, tenantId, branchIds);
@@ -151,14 +151,21 @@ export class ProductsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await this.assertOwnedActiveCategory(tx, tenantId, dto.categoryId);
+      const category = await this.assertOwnedActiveCategory(
+        tx,
+        tenantId,
+        dto.categoryId,
+      );
+      const sku =
+        dto.sku ??
+        (await this.generateSku(tx, tenantId, String(category.name), dto.name));
       if (dto.active !== false) {
         await this.assertProductSlot(tx, tenantId);
       }
       const product = await tx.product.create({
         data: {
           tenantId,
-          sku: dto.sku,
+          sku,
           name: dto.name,
           brand: dto.brand,
           categoryId: dto.categoryId,
@@ -294,11 +301,41 @@ export class ProductsService {
   ) {
     const category = await prisma.productCategory.findFirst({
       where: { id: categoryId, tenantId, active: true },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!category) {
       throw new NotFoundException('Categoria não encontrada');
     }
+    return category;
+  }
+
+  private async generateSku(
+    prisma: PrismaTx,
+    tenantId: string,
+    category: string,
+    name: string,
+  ) {
+    const abbreviate = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part.slice(0, 3));
+    const base = [
+      ...abbreviate(category).slice(0, 1),
+      ...abbreviate(name).slice(0, 3),
+    ].join('-');
+    const latest = await prisma.product.findFirst({
+      where: { tenantId, sku: { startsWith: `${base}-` } },
+      orderBy: { sku: 'desc' },
+      select: { sku: true },
+    });
+    const sequence = Number(latest?.sku.split('-').at(-1) ?? 0) + 1;
+    return `${base}-${String(sequence).padStart(3, '0')}`;
   }
 
   private async findOwned(tenantId: string, productId: string) {
