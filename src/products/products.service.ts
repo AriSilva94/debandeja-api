@@ -86,7 +86,7 @@ export class ProductsService {
 
     const filtered = Prisma.sql`
       WITH aggregated AS (
-        SELECT p.id, p.sku, p.name, p.brand, pc.name AS category, p.barcode, p.unit,
+        SELECT p.id, p."categoryId", p.sku, p.name, p.brand, pc.name AS category, p.barcode, p.unit,
                p.price, p."minStock", p.active, p."imageUrl",
                COALESCE(SUM(s.current), 0)::int AS stock,
                COALESCE(SUM(COALESCE(s."minStockOverride", p."minStock")), 0)::int AS "minTotal"
