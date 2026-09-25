@@ -1,0 +1,63 @@
+INSERT INTO "product_categories" (
+    "id",
+    "tenantId",
+    "name",
+    "normalizedName",
+    "active",
+    "createdAt",
+    "updatedAt"
+)
+SELECT
+    gen_random_uuid()::TEXT,
+    tenant.id,
+    category.name,
+    category."normalizedName",
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM "tenants" AS tenant
+CROSS JOIN (
+    VALUES
+        ('Cervejas', 'cervejas'),
+        ('Chopes', 'chopes'),
+        ('Cervejas sem álcool', 'cervejas sem alcool'),
+        ('Refrigerantes', 'refrigerantes'),
+        ('Energéticos', 'energeticos'),
+        ('Isotônicos', 'isotonicos'),
+        ('Água mineral sem gás', 'agua mineral sem gas'),
+        ('Água mineral com gás', 'agua mineral com gas'),
+        ('Água de coco', 'agua de coco'),
+        ('Sucos', 'sucos'),
+        ('Chás prontos', 'chas prontos'),
+        ('Bebidas lácteas', 'bebidas lacteas'),
+        ('Bebidas funcionais', 'bebidas funcionais'),
+        ('Bebidas vegetais', 'bebidas vegetais'),
+        ('Kombuchas', 'kombuchas'),
+        ('Cidras', 'cidras'),
+        ('Vinhos tintos', 'vinhos tintos'),
+        ('Vinhos brancos', 'vinhos brancos'),
+        ('Vinhos rosés', 'vinhos roses'),
+        ('Espumantes', 'espumantes'),
+        ('Champagnes', 'champagnes'),
+        ('Proseccos', 'proseccos'),
+        ('Destilados', 'destilados'),
+        ('Whisky', 'whisky'),
+        ('Vodka', 'vodka'),
+        ('Gin', 'gin'),
+        ('Rum', 'rum'),
+        ('Tequila', 'tequila'),
+        ('Cachaça', 'cachaca'),
+        ('Licores', 'licores'),
+        ('Aperitivos e vermutes', 'aperitivos e vermutes'),
+        ('Coquetéis prontos', 'coqueteis prontos'),
+        ('Bebidas sem álcool', 'bebidas sem alcool'),
+        ('Xaropes e mixers', 'xaropes e mixers'),
+        ('Tônicas', 'tonicas'),
+        ('Gelo', 'gelo'),
+        ('Carvão', 'carvao'),
+        ('Copos e descartáveis', 'copos e descartaveis'),
+        ('Snacks e petiscos', 'snacks e petiscos'),
+        ('Kits e combos', 'kits e combos'),
+        ('Outros', 'outros')
+) AS category(name, "normalizedName")
+ON CONFLICT ("tenantId", "normalizedName") DO NOTHING;
