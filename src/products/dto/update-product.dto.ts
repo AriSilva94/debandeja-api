@@ -15,11 +15,6 @@ import { PRODUCT_UNITS } from '../../common/constants/product-units';
 export class UpdateProductDto {
   @IsOptional()
   @IsString()
-  @MinLength(1)
-  sku?: string;
-
-  @IsOptional()
-  @IsString()
   @MinLength(2)
   name?: string;
 
@@ -29,8 +24,8 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(2)
-  category?: string;
+  @MinLength(1)
+  categoryId?: string;
 
   @IsOptional()
   @IsString()

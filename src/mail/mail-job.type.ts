@@ -13,24 +13,28 @@ export type InviteJobData = {
   tenantName: string;
   inviterName: string;
   acceptUrl: string;
+  expiresInHours: number;
 };
 
 export type EmailVerificationJobData = {
   to: string;
   name: string;
   verifyUrl: string;
+  expiresInHours: number;
 };
 
 export type PasswordResetJobData = {
   to: string;
   name: string;
   resetUrl: string;
+  expiresInHours: number;
 };
 
 export type EmailChangeJobData = {
   to: string;
   name: string;
   confirmUrl: string;
+  expiresInHours: number;
 };
 
 export type TeamUpdateJobData = {

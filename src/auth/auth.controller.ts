@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -16,6 +17,7 @@ import {
 import { Public } from './decorators/public.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
@@ -24,6 +26,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import type { AuthTokens } from './types/jwt-payload.type';
 import { clientIp } from '../common/http/client-ip';
 import { BRUTE_FORCE_THROTTLE } from '../common/http/throttle';
+import { InternalBffGuard } from '../common/http/internal-bff.guard';
 
 @Public()
 @Controller('auth')
@@ -41,6 +44,21 @@ export class AuthController {
   @Throttle(BRUTE_FORCE_THROTTLE)
   login(@Body() dto: LoginDto, @Req() req: Request): Promise<SessionResult> {
     return this.authService.login(dto, sessionMetaFrom(req));
+  }
+
+  @Post('google')
+  @UseGuards(InternalBffGuard)
+  @HttpCode(HttpStatus.OK)
+  @Throttle(BRUTE_FORCE_THROTTLE)
+  googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @Req() req: Request,
+  ): Promise<SessionResult> {
+    return this.authService.loginWithGoogle(
+      dto.idToken,
+      dto.nonce,
+      sessionMetaFrom(req),
+    );
   }
 
   @Post('verify-email')

@@ -15,10 +15,6 @@ import { PRODUCT_UNITS } from '../../common/constants/product-units';
 
 export class CreateProductDto {
   @IsString()
-  @MinLength(1)
-  sku: string;
-
-  @IsString()
   @MinLength(2)
   name: string;
 
@@ -27,8 +23,8 @@ export class CreateProductDto {
   brand?: string;
 
   @IsString()
-  @MinLength(2)
-  category: string;
+  @MinLength(1)
+  categoryId: string;
 
   @IsOptional()
   @IsString()

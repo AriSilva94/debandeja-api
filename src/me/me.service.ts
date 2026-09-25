@@ -157,6 +157,11 @@ export class MeService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Esta conta usa login com Google e não possui senha',
+      );
+    }
     const valid = await argon2.verify(user.passwordHash, dto.currentPassword);
     if (!valid) {
       throw new BadRequestException('Senha atual incorreta');
@@ -275,6 +280,11 @@ export class MeService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Esta conta usa login com Google e não possui senha',
+      );
+    }
     const valid = await argon2.verify(user.passwordHash, dto.currentPassword);
     if (!valid) {
       throw new BadRequestException('Senha atual incorreta');
@@ -309,6 +319,7 @@ export class MeService {
       to: dto.newEmail,
       name: user.name,
       confirmUrl: `${appUrl}/confirmar-email?token=${userId}.${secret}`,
+      expiresInHours: Number(ttlHours),
     });
     return { pendingEmail: dto.newEmail };
   }

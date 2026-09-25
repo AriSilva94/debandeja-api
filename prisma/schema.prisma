@@ -52,7 +52,8 @@ model User {
   id                              String    @id @default(uuid())
   name                            String
   email                           String    @unique
-  passwordHash                    String
+  passwordHash                    String?
+  googleSubject                   String?   @unique
   avatarUrl                       String?
   notificationSettings            Json      @default("{}")
   emailVerifiedAt                 DateTime?
@@ -106,13 +107,14 @@ model Tenant {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  memberships  Membership[]
-  branches     Branch[]
-  products     Product[]
-  stocks       Stock[]
-  movements    Movement[]
-  subscription Subscription?
-  invoices     Invoice[]
+  memberships       Membership[]
+  branches          Branch[]
+  products          Product[]
+  productCategories ProductCategory[]
+  stocks            Stock[]
+  movements         Movement[]
+  subscription      Subscription?
+  invoices          Invoice[]
 
   @@map("tenants")
 }
@@ -214,28 +216,47 @@ model Branch {
 }
 
 model Product {
-  id        String      @id @default(uuid())
-  tenantId  String
-  sku       String
-  name      String
-  brand     String?
-  category  String
-  barcode   String?
-  unit      ProductUnit @default(UN)
-  price     Decimal     @db.Decimal(10, 2)
-  minStock  Int         @default(0)
-  imageUrl  String?
-  active    Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id         String      @id @default(uuid())
+  tenantId   String
+  categoryId String
+  sku        String
+  name       String
+  brand      String?
+  barcode    String?
+  unit       ProductUnit @default(UN)
+  price      Decimal     @db.Decimal(10, 2)
+  minStock   Int         @default(0)
+  imageUrl   String?
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category  ProductCategory @relation(fields: [categoryId], references: [id])
   stocks    Stock[]
   movements Movement[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
+  @@index([categoryId])
   @@map("products")
+}
+
+model ProductCategory {
+  id             String   @id @default(uuid())
+  tenantId       String
+  name           String
+  normalizedName String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, normalizedName])
+  @@index([tenantId, name])
+  @@map("product_categories")
 }
 
 model Stock {

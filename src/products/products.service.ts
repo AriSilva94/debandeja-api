@@ -74,7 +74,7 @@ export class ProductsService {
 
     const conditions = [Prisma.sql`p."tenantId" = ${tenantId}`];
     if (query.category) {
-      conditions.push(Prisma.sql`p.category = ${query.category}`);
+      conditions.push(Prisma.sql`pc.name = ${query.category}`);
     }
     if (query.search) {
       const pattern = `%${query.search.replace(/[\\%_]/g, '\\$&')}%`;
@@ -85,14 +85,15 @@ export class ProductsService {
 
     const filtered = Prisma.sql`
       WITH aggregated AS (
-        SELECT p.id, p.sku, p.name, p.brand, p.category, p.barcode, p.unit,
+        SELECT p.id, p."categoryId", p.sku, p.name, p.brand, pc.name AS category, p.barcode, p.unit,
                p.price, p."minStock", p.active, p."imageUrl",
                COALESCE(SUM(s.current), 0)::int AS stock,
                COALESCE(SUM(COALESCE(s."minStockOverride", p."minStock")), 0)::int AS "minTotal"
         FROM products p
+        INNER JOIN product_categories pc ON pc.id = p."categoryId"
         LEFT JOIN stocks s ON s."productId" = p.id ${stockScope(tenant)}
         WHERE ${Prisma.join(conditions, ' AND ')}
-        GROUP BY p.id
+        GROUP BY p.id, pc.name
       ),
       leveled AS (
         SELECT *, CASE
@@ -132,19 +133,15 @@ export class ProductsService {
   }
 
   categories(tenantId: string) {
-    return this.prisma.product
-      .findMany({
-        where: { tenantId },
-        select: { category: true },
-        distinct: ['category'],
-        orderBy: { category: 'asc' },
-      })
-      .then((rows) => rows.map((r) => r.category));
+    return this.prisma.productCategory.findMany({
+      where: { tenantId, active: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
   }
 
   async create(tenant: TenantContext, dto: CreateProductDto) {
     const { tenantId } = tenant;
-    await this.assertSkuAvailable(tenantId, dto.sku);
     if (dto.initialStockByBranch) {
       const branchIds = Object.keys(dto.initialStockByBranch);
       await assertBranchesBelongToTenant(this.prisma, tenantId, branchIds);
@@ -153,16 +150,27 @@ export class ProductsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const category = await this.assertOwnedActiveCategory(
+        tx,
+        tenantId,
+        dto.categoryId,
+      );
+      const sku = await this.generateSku(
+        tx,
+        tenantId,
+        String(category.name),
+        dto.name,
+      );
       if (dto.active !== false) {
         await this.assertProductSlot(tx, tenantId);
       }
       const product = await tx.product.create({
         data: {
           tenantId,
-          sku: dto.sku,
+          sku,
           name: dto.name,
           brand: dto.brand,
-          category: dto.category,
+          categoryId: dto.categoryId,
           barcode: dto.barcode,
           unit: dto.unit,
           price: dto.price,
@@ -186,8 +194,12 @@ export class ProductsService {
   async update(tenantId: string, productId: string, dto: UpdateProductDto) {
     const current = await this.findOwned(tenantId, productId);
 
-    if (dto.sku) {
-      await this.assertSkuAvailable(tenantId, dto.sku, productId);
+    if (dto.categoryId) {
+      await this.assertOwnedActiveCategory(
+        this.prisma,
+        tenantId,
+        dto.categoryId,
+      );
     }
 
     if (dto.active === true && !current.active) {
@@ -215,10 +227,9 @@ export class ProductsService {
 
   private updateData(dto: UpdateProductDto) {
     return {
-      sku: dto.sku,
       name: dto.name,
       brand: dto.brand,
-      category: dto.category,
+      categoryId: dto.categoryId,
       barcode: dto.barcode,
       unit: dto.unit,
       price: dto.price,
@@ -241,6 +252,7 @@ export class ProductsService {
     const sku = await this.generateCopySku(tenantId, source.sku);
 
     return this.prisma.$transaction(async (tx) => {
+      await this.assertOwnedActiveCategory(tx, tenantId, source.categoryId);
       if (source.active) {
         await this.assertProductSlot(tx, tenantId);
       }
@@ -250,7 +262,7 @@ export class ProductsService {
           sku,
           name: `${source.name} (cópia)`,
           brand: source.brand,
-          category: source.category,
+          categoryId: source.categoryId,
           barcode: null,
           unit: source.unit,
           price: source.price,
@@ -277,6 +289,50 @@ export class ProductsService {
       where: { tenantId, active: true },
     });
     await assertPlanAllows(tx, tenantId, 'maxProducts', activeCount);
+  }
+
+  private async assertOwnedActiveCategory(
+    prisma: Pick<PrismaService, 'productCategory'>,
+    tenantId: string,
+    categoryId: string,
+  ) {
+    const category = await prisma.productCategory.findFirst({
+      where: { id: categoryId, tenantId, active: true },
+      select: { id: true, name: true },
+    });
+    if (!category) {
+      throw new NotFoundException('Categoria não encontrada');
+    }
+    return category;
+  }
+
+  private async generateSku(
+    prisma: PrismaTx,
+    tenantId: string,
+    category: string,
+    name: string,
+  ) {
+    const abbreviate = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part.slice(0, 3));
+    const base = [
+      ...abbreviate(category).slice(0, 1),
+      ...abbreviate(name).slice(0, 3),
+    ].join('-');
+    const latest = await prisma.product.findFirst({
+      where: { tenantId, sku: { startsWith: `${base}-` } },
+      orderBy: { sku: 'desc' },
+      select: { sku: true },
+    });
+    const sequence = Number(latest?.sku.split('-').at(-1) ?? 0) + 1;
+    return `${base}-${String(sequence).padStart(3, '0')}`;
   }
 
   private async findOwned(tenantId: string, productId: string) {
