@@ -18,25 +18,6 @@ import { NotFoundException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 
 describe('ProductsService', () => {
-  it('cria uma categoria normalizada para o tenant', async () => {
-    const prisma = {
-      productCategory: {
-        create: jest.fn().mockResolvedValue({ id: 'category-1' }),
-      },
-    };
-    const service = new ProductsService(prisma as never, {} as never);
-
-    await service.createCategory('tenant-1', { name: ' Águas  ' });
-
-    expect(prisma.productCategory.create).toHaveBeenCalledWith({
-      data: {
-        tenantId: 'tenant-1',
-        name: 'Águas',
-        normalizedName: 'aguas',
-      },
-    });
-  });
-
   it('rejeita uma categoria de outro tenant ao criar um produto', async () => {
     const tx = {
       productCategory: { findFirst: jest.fn().mockResolvedValue(null) },

@@ -9,7 +9,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { ListProductsQuery, type ProductTab } from './dto/list-products.query';
 import type { StockLevel } from '../common/stock/level';
 import type { TenantContext } from '../common/tenant/tenant-context';
@@ -139,25 +138,6 @@ export class ProductsService {
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
-  }
-
-  async createCategory(tenantId: string, dto: CreateProductCategoryDto) {
-    const name = dto.name.trim().replace(/\s+/g, ' ');
-    const normalizedName = this.normalizeCategoryName(name);
-
-    try {
-      return await this.prisma.productCategory.create({
-        data: { tenantId, name, normalizedName },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Já existe uma categoria com este nome');
-      }
-      throw error;
-    }
   }
 
   async create(tenant: TenantContext, dto: CreateProductDto) {
@@ -319,13 +299,6 @@ export class ProductsService {
     if (!category) {
       throw new NotFoundException('Categoria não encontrada');
     }
-  }
-
-  private normalizeCategoryName(name: string) {
-    return name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLocaleLowerCase('pt-BR');
   }
 
   private async findOwned(tenantId: string, productId: string) {
