@@ -22,6 +22,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ListProductsQuery } from './dto/list-products.query';
+import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 
 @Controller('products')
 @UseGuards(TenantGuard, PermissionsGuard)
@@ -41,6 +42,15 @@ export class ProductsController {
   @RequirePermission(PermissionModule.PRODUCTS, PermissionLevel.READ)
   categories(@CurrentTenant() tenant: TenantContext) {
     return this.productsService.categories(tenant.tenantId);
+  }
+
+  @Post('categories')
+  @RequirePermission(PermissionModule.PRODUCTS, PermissionLevel.WRITE)
+  createCategory(
+    @CurrentTenant() tenant: TenantContext,
+    @Body() dto: CreateProductCategoryDto,
+  ) {
+    return this.productsService.createCategory(tenant.tenantId, dto);
   }
 
   @Post()

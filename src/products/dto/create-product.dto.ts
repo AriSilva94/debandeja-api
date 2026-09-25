@@ -27,8 +27,8 @@ export class CreateProductDto {
   brand?: string;
 
   @IsString()
-  @MinLength(2)
-  category: string;
+  @MinLength(1)
+  categoryId: string;
 
   @IsOptional()
   @IsString()

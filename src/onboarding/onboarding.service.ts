@@ -6,6 +6,7 @@ import {
   SubscriptionStatus,
 } from '../../generated/prisma/enums';
 import { DEFAULT_PLAN_CODE, TRIAL_DAYS } from '../common/constants/billing';
+import { DEFAULT_PRODUCT_CATEGORIES } from '../common/constants/product-categories';
 import { lockTenant } from '../common/plan/plan-limits';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { CreateBranchDto } from './dto/create-branch.dto';
@@ -35,6 +36,11 @@ export class OnboardingService {
           create: {
             planCode: DEFAULT_PLAN_CODE,
             status: SubscriptionStatus.TRIAL,
+          },
+        },
+        productCategories: {
+          createMany: {
+            data: DEFAULT_PRODUCT_CATEGORIES,
           },
         },
       },
