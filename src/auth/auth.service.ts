@@ -205,6 +205,7 @@ export class AuthService {
         to: user.email,
         name: user.name,
         resetUrl,
+        expiresInHours: Number(ttlHours),
       });
     }
     return { message: GENERIC_FORGOT_PASSWORD_MESSAGE };
@@ -243,6 +244,9 @@ export class AuthService {
           passwordHash,
           passwordResetTokenHash: null,
           passwordResetTokenExpiresAt: null,
+          emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+          emailVerificationTokenHash: null,
+          emailVerificationTokenExpiresAt: null,
         },
       });
       if (updated.count === 0) {
@@ -368,7 +372,12 @@ export class AuthService {
 
     const appUrl = this.config.get<string>('APP_URL');
     const verifyUrl = `${appUrl}/verificar-email?token=${userId}.${secret}`;
-    await this.mail.sendEmailVerification({ to: email, name, verifyUrl });
+    await this.mail.sendEmailVerification({
+      to: email,
+      name,
+      verifyUrl,
+      expiresInHours: Number(ttlHours),
+    });
   }
 
   private parseRefreshToken(token: string): {

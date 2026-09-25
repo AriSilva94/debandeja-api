@@ -206,9 +206,12 @@ export class TeamService {
     return toMember(updated);
   }
 
+  private inviteTtlHours() {
+    return Number(this.config.get<number>('INVITE_TOKEN_TTL_HOURS') ?? 48);
+  }
+
   private inviteExpiry() {
-    const ttlHours = this.config.get<number>('INVITE_TOKEN_TTL_HOURS') ?? 48;
-    return new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+    return new Date(Date.now() + this.inviteTtlHours() * 60 * 60 * 1000);
   }
 
   private sendInviteEmail(
@@ -224,6 +227,7 @@ export class TeamService {
       tenantName: tenant.tradeName ?? tenant.legalName,
       inviterName,
       acceptUrl: `${appUrl}/aceitar-convite?token=${membershipId}.${secret}`,
+      expiresInHours: this.inviteTtlHours(),
     });
   }
 

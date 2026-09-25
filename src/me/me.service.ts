@@ -309,6 +309,7 @@ export class MeService {
       to: dto.newEmail,
       name: user.name,
       confirmUrl: `${appUrl}/confirmar-email?token=${userId}.${secret}`,
+      expiresInHours: Number(ttlHours),
     });
     return { pendingEmail: dto.newEmail };
   }
