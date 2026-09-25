@@ -1,5 +1,5 @@
 export const DEFAULT_PLAN_CODE = 'ESSENCIAL';
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 7;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
