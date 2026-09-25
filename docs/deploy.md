@@ -20,6 +20,7 @@ de segredos da plataforma, nunca de arquivo commitado.
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `MAIL_FROM` | sim | Hostinger, ver a seção 5. |
 | `SMTP_USER` / `SMTP_PASS` | em dev/prd | Caixa `auth@debandeja.store` e a senha dela. Vazios no local (Mailpit). |
 | `INTERNAL_API_TOKEN` | sim | Ver a seção 2. **Mesmo valor** no frontend. |
+| `GOOGLE_CLIENT_ID` | sim | Mesmo Client ID OAuth Web do BFF; usado para validar o `id_token` do Google. |
 | `INVITE_TOKEN_TTL_HOURS`, `EMAIL_VERIFICATION_TOKEN_TTL_HOURS`, `PASSWORD_RESET_TOKEN_TTL_HOURS` | não | Padrões 48 / 24 / 2. |
 
 ## 2. Rate limit e IP do visitante

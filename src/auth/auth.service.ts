@@ -12,6 +12,7 @@ import { nanoid } from 'nanoid';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { MailService } from '../mail/mail.service';
+import { GoogleIdentityService } from './google-identity.service';
 import {
   listUserTenants,
   type UserTenantSummary,
@@ -52,6 +53,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mail: MailService,
+    private readonly googleIdentity: GoogleIdentityService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegisterResult> {
@@ -76,11 +78,65 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+    if (
+      !user ||
+      !user.passwordHash ||
+      !(await argon2.verify(user.passwordHash, dto.password))
+    ) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
     if (!user.emailVerifiedAt) {
       throw new ForbiddenException('Confirme seu e-mail antes de entrar');
+    }
+
+    return this.issueTokensWithTenants(user.id, meta);
+  }
+
+  async loginWithGoogle(
+    idToken: string,
+    nonce: string,
+    meta: SessionMeta = {},
+  ): Promise<SessionResult> {
+    const identity = await this.googleIdentity.verify(idToken, nonce);
+    let user = await this.prisma.user.findUnique({
+      where: { googleSubject: identity.subject },
+    });
+
+    if (!user) {
+      const matchingEmail = await this.prisma.user.findFirst({
+        where: { email: { equals: identity.email, mode: 'insensitive' } },
+      });
+      if (
+        matchingEmail?.googleSubject &&
+        matchingEmail.googleSubject !== identity.subject
+      ) {
+        throw new UnauthorizedException(
+          'Esta conta já está vinculada a outro login Google',
+        );
+      }
+      if (matchingEmail && !identity.emailIsAuthoritative) {
+        throw new UnauthorizedException(
+          'Entre com sua senha para vincular sua conta Google',
+        );
+      }
+      user = matchingEmail
+        ? await this.prisma.user.update({
+            where: { id: matchingEmail.id },
+            data: {
+              googleSubject: identity.subject,
+              emailVerifiedAt: matchingEmail.emailVerifiedAt ?? new Date(),
+              avatarUrl: matchingEmail.avatarUrl ?? identity.avatarUrl,
+            },
+          })
+        : await this.prisma.user.create({
+            data: {
+              name: identity.name,
+              email: identity.email,
+              googleSubject: identity.subject,
+              avatarUrl: identity.avatarUrl,
+              emailVerifiedAt: new Date(),
+            },
+          });
     }
 
     return this.issueTokensWithTenants(user.id, meta);
