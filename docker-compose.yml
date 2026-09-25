@@ -1,0 +1,51 @@
+name: debandeja
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: debandeja-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: debandeja
+      POSTGRES_PASSWORD: debandeja
+      POSTGRES_DB: debandeja
+    ports:
+      - "5434:5432"
+    volumes:
+      - debandeja-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U debandeja -d debandeja"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: debandeja-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - debandeja-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.26
+    container_name: debandeja-mailpit
+    restart: unless-stopped
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/livez"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  debandeja-postgres-data:
+  debandeja-redis-data:

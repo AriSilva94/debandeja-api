@@ -1,0 +1,298 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  SALES
+  STOCKIST
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  REMOVED
+}
+
+enum ProductUnit {
+  UN
+  CX
+  PCT
+  FD
+}
+
+enum MovementType {
+  ENTRADA
+  SAIDA
+  AJUSTE
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELED
+}
+
+enum InvoiceStatus {
+  ISENTO
+  PAGO
+}
+
+model User {
+  id                              String    @id @default(uuid())
+  name                            String
+  email                           String    @unique
+  passwordHash                    String
+  avatarUrl                       String?
+  notificationSettings            Json      @default("{}")
+  emailVerifiedAt                 DateTime?
+  emailVerificationTokenHash      String?
+  emailVerificationTokenExpiresAt DateTime?
+  passwordResetTokenHash          String?
+  passwordResetTokenExpiresAt     DateTime?
+  pendingEmail                    String?
+  emailChangeTokenHash            String?
+  emailChangeTokenExpiresAt       DateTime?
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+
+  memberships Membership[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  deviceLabel      String?
+  ipAddress        String?
+  userAgent        String?
+  refreshTokenHash String
+  lastAccessAt     DateTime  @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Tenant {
+  id                String    @id @default(uuid())
+  legalName         String
+  tradeName         String?
+  cnpj              String?
+  phone             String?
+  contactEmail      String?
+  address           String?
+  city              String?
+  uf                String?
+  zip               String?
+  stateRegistration String?
+  taxRegime         String?
+  trialEndsAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  memberships  Membership[]
+  branches     Branch[]
+  products     Product[]
+  stocks       Stock[]
+  movements    Movement[]
+  subscription Subscription?
+  invoices     Invoice[]
+
+  @@map("tenants")
+}
+
+model Plan {
+  code        String   @id
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  maxUsers    Int?
+  maxBranches Int?
+  maxProducts Int?
+  features    String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  tenantId         String             @unique
+  planCode         String
+  status           SubscriptionStatus @default(TRIAL)
+  currentPeriodEnd DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planCode], references: [code])
+  invoices Invoice[]
+
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  tenantId       String
+  subscriptionId String
+  issuedAt       DateTime      @default(now())
+  description    String
+  amount         Decimal       @db.Decimal(10, 2)
+  status         InvoiceStatus @default(ISENTO)
+  pdfUrl         String?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("invoices")
+}
+
+model Membership {
+  id                   String           @id @default(uuid())
+  tenantId             String
+  userId               String?
+  invitedEmail         String?
+  inviteTokenHash      String?
+  inviteTokenExpiresAt DateTime?
+  role                 Role
+  status               MembershipStatus @default(INVITED)
+  preferences          Json             @default("{}")
+  lastAccessAt         DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branches  MembershipBranch[]
+  movements Movement[]
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+model Branch {
+  id              String   @id @default(uuid())
+  tenantId        String
+  name            String
+  city            String?
+  uf              String?
+  responsibleName String?
+  isMain          Boolean  @default(false)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships MembershipBranch[]
+  stocks      Stock[]
+  movements   Movement[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model Product {
+  id        String      @id @default(uuid())
+  tenantId  String
+  sku       String
+  name      String
+  brand     String?
+  category  String
+  barcode   String?
+  unit      ProductUnit @default(UN)
+  price     Decimal     @db.Decimal(10, 2)
+  minStock  Int         @default(0)
+  imageUrl  String?
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stocks    Stock[]
+  movements Movement[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@map("products")
+}
+
+model Stock {
+  id               String   @id @default(uuid())
+  tenantId         String
+  productId        String
+  branchId         String
+  current          Int      @default(0)
+  reserved         Int      @default(0)
+  minStockOverride Int?
+  updatedAt        DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId])
+  @@index([tenantId])
+  @@index([branchId])
+  @@map("stocks")
+}
+
+model Movement {
+  id            String       @id @default(uuid())
+  tenantId      String
+  branchId      String
+  productId     String
+  memberId      String
+  type          MovementType
+  qty           Int
+  balanceBefore Int
+  balanceAfter  Int
+  note          String?
+  createdAt     DateTime     @default(now())
+
+  reversesMovementId String?   @unique
+  reverses           Movement? @relation("MovementReversal", fields: [reversesMovementId], references: [id])
+  reversedBy         Movement? @relation("MovementReversal")
+
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  member  Membership @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([branchId])
+  @@index([productId])
+  @@map("movements")
+}
+
+model MembershipBranch {
+  membershipId String
+  branchId     String
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, branchId])
+  @@map("membership_branches")
+}
