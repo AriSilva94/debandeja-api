@@ -39,7 +39,6 @@ describe('ProductsService', () => {
           allowedBranchIds: null,
         } as never,
         {
-          sku: 'SKU-1',
           name: 'Produto',
           categoryId: 'category-2',
           price: 10,

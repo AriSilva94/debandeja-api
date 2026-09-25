@@ -142,7 +142,6 @@ export class ProductsService {
 
   async create(tenant: TenantContext, dto: CreateProductDto) {
     const { tenantId } = tenant;
-    if (dto.sku) await this.assertSkuAvailable(tenantId, dto.sku);
     if (dto.initialStockByBranch) {
       const branchIds = Object.keys(dto.initialStockByBranch);
       await assertBranchesBelongToTenant(this.prisma, tenantId, branchIds);
@@ -156,9 +155,12 @@ export class ProductsService {
         tenantId,
         dto.categoryId,
       );
-      const sku =
-        dto.sku ??
-        (await this.generateSku(tx, tenantId, String(category.name), dto.name));
+      const sku = await this.generateSku(
+        tx,
+        tenantId,
+        String(category.name),
+        dto.name,
+      );
       if (dto.active !== false) {
         await this.assertProductSlot(tx, tenantId);
       }
@@ -191,10 +193,6 @@ export class ProductsService {
 
   async update(tenantId: string, productId: string, dto: UpdateProductDto) {
     const current = await this.findOwned(tenantId, productId);
-
-    if (dto.sku) {
-      await this.assertSkuAvailable(tenantId, dto.sku, productId);
-    }
 
     if (dto.categoryId) {
       await this.assertOwnedActiveCategory(
@@ -229,7 +227,6 @@ export class ProductsService {
 
   private updateData(dto: UpdateProductDto) {
     return {
-      sku: dto.sku,
       name: dto.name,
       brand: dto.brand,
       categoryId: dto.categoryId,

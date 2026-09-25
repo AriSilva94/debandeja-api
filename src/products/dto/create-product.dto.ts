@@ -14,11 +14,6 @@ import {
 import { PRODUCT_UNITS } from '../../common/constants/product-units';
 
 export class CreateProductDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  sku?: string;
-
   @IsString()
   @MinLength(2)
   name: string;
